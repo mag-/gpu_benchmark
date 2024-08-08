@@ -1,10 +1,10 @@
-# testing theoretical max flops on gpus
+# Testing Theoretical Max FLOPS on GPUs
 
 Based on: [https://github.com/stas00/ml-engineering/tree/master/compute/accelerator#maximum-achievable-flops]
 
 Original code here: [https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/benchmarks/mamf-finder.py]
 
-Original code does brute force search but we can do better with optuna, also we get a nice graph like:
+The original code does a brute force search, but we can do better with Optuna. We also get nice graphs like:
 
 ![Optuna Optimization Visualization](./img/optuna1.png)
 or:
@@ -24,7 +24,7 @@ or:
 # Install
 
 ```
-( if you are not using uv, install it: pip install uv)
+# If you are not using uv, install it: pip install uv
 git clone https://github.com/mag-/gpu_benchmark
 uv venv
 source .venv/bin/activate
@@ -37,7 +37,7 @@ uv pip install -r requirements.txt
 
 
 # TODO:
-- check raw Cuda
+- check raw CUDA
 - check tinygrad
 - add automatic posting of results to simple API
 
