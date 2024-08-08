@@ -17,6 +17,8 @@ from pathlib import Path
 
 import argparse
 import datetime
+import termios
+import tty
 import numpy as np
 import os
 import platform
@@ -27,6 +29,7 @@ import sys
 import time
 import torch
 import optuna
+
 from optuna.storages import RDBStorage
 import warnings
 warnings.filterwarnings("ignore", message="set_metric_names is experimental*")
@@ -175,6 +178,16 @@ torch={torch.__version__}
 
 """)
 
+def getch():
+  fd = sys.stdin.fileno()
+  old_settings = termios.tcgetattr(fd)
+  try:
+    tty.setraw(sys.stdin.fileno())
+    ch = sys.stdin.read(1)
+  finally:
+    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+  return ch
+
 # Benchmark of a basic GEMM
 def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     start = arch.event(enable_timing=True)
@@ -258,6 +271,31 @@ if __name__ == '__main__':
         best_config = f"{best_trial.params['M']}x{best_trial.params['N']}x{best_trial.params['K']} (MxNxK)"
         print(f"The best outcome was {best_tflops:.1f}TFLOPS @ {best_config} (tried {len(study.trials)} shapes)")
         print(f"Elapsed time: {time_str}")
+        # Ask user if they want to upload the data
+        print("Do you want to upload the benchmark results to the API? (y/n): ", end='', flush=True)
+        upload_response = getch().lower()
+        print(upload_response)
+        if upload_response == 'y':
+            upload_to_api(best_tflops, best_config)
+
+    def upload_to_api(tflops, config):
+        import urllib.request
+        import json
+        data = json.dumps({
+            'tflops': tflops,
+            'config': config,
+            'device_info': str(arch.device_info()),
+            'compute_info': arch.compute_info(),
+        }).encode('utf-8')
+        req = urllib.request.Request('https://rafalkwasny.com/log_gpu_benchmark', data=data, headers={'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(req) as response:
+                if response.getcode() == 200:
+                    print("Data successfully uploaded.")
+                else:
+                    print(f"Failed to upload data. Status code: {response.getcode()}")
+        except urllib.error.URLError as e:
+            print(f"Failed to upload data. Error: {e.reason}")
 
     def print_progress(study, trial):
         print(f"Trial {trial.number:>6} | {trial.value:6.1f} TFLOPS @ {trial.params['M']}x{trial.params['N']}x{trial.params['K']:<20} | best: {study.best_value:6.1f} TFLOPS", end="\r")
