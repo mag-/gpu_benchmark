@@ -221,9 +221,9 @@ def objective(trial):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--m_range", nargs=3, type=int, default=[1024, 18432, 128], help="The first dimension of the GEMM, [start,stop,step]")
-    parser.add_argument("--n_range", nargs=3, type=int, default=[1024, 18432, 128], help="The shared dimension of the GEMM, [start,stop,step]")
-    parser.add_argument("--k_range", nargs=3, type=int, default=[1024, 18432, 128], help="The last dimension of the GEMM, [start,stop,step]")
+    parser.add_argument("--m_range", nargs=3, type=int, default=[1024, 20480, 64], help="The first dimension of the GEMM, [start,stop,step]")
+    parser.add_argument("--n_range", nargs=3, type=int, default=[1024, 20480, 64], help="The shared dimension of the GEMM, [start,stop,step]")
+    parser.add_argument("--k_range", nargs=3, type=int, default=[1024, 20480, 64], help="The last dimension of the GEMM, [start,stop,step]")
     parser.add_argument("--num_iterations", type=int, default=100, help='The number of iterations used to benchmark each GEMM')
     parser.add_argument("--num_warmup_iterations", type=int, default=50, help='The number of warmup iterations')
     parser.add_argument("--cuda_device", type=int, default=0, help="The cuda device to run the benchmark on")
@@ -272,10 +272,10 @@ if __name__ == '__main__':
         print(f"The best outcome was {best_tflops:.1f}TFLOPS @ {best_config} (tried {len(study.trials)} shapes)")
         print(f"Elapsed time: {time_str}")
         # Ask user if they want to upload the data
-        print("Do you want to upload the benchmark results to the API? (y/n): ", end='', flush=True)
+        print("Do you want to upload the benchmark results to the API? [Y/n]: ", end='', flush=True)
         upload_response = getch().lower()
-        print(upload_response)
-        if upload_response == 'y':
+        print("\n")
+        if upload_response != "n":
             upload_to_api(best_tflops, best_config)
 
     def upload_to_api(tflops, config):
