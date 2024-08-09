@@ -36,10 +36,8 @@ Special thanks to [Stas Bekman](https://x.com/StasBekman) for the original imple
 | NVIDIA H100 NVL | 2560x2176x8192 | 488.5 |
 | NVIDIA H100 PCIe | 6912x16384x2048 | 499.5 |
 | AMD MI300X | 4352x13568x3840 | 758.3 |
-| NVIDIA H100 SXM | 6144x17920x2816 | 792.1 |
-| NVIDIA GH200 480GB | 7616x17664x4480 | 852.5 |
-
-(GH200 is still not done and finding faster combinations)
+| NVIDIA H100 SXM | 6144x17920x2816 | 821.2 |
+| NVIDIA GH200 96GB | 7616x17664x4480 | 852.5 |
 
 # Install
 
