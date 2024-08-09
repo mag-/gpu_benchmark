@@ -22,13 +22,20 @@ Special thanks to [Stas Bekman](https://x.com/StasBekman) for the original imple
 
 | GPU Model | Best Shape (MxNxK) | TFLOPS |
 |-----------|---------------------|--------|
+| NVIDIA RTX 4000 SFF Ada Generation | 2304x5120x1536 | 59.0 |
+| NVIDIA RTX 4000 Ada Generation | 14464x5312x20480 | 82.7 |
+| NVIDIA L4 | 1024x6016x1792 | 91.4 |
+| NVIDIA L40 | 3712x2624x11136 | 170.3 |
 | NVIDIA RTX 4090 | 15360x6784x8192 | 178.5 |
+| NVIDIA L40S | 4416x3776x3072 | 252.0 |
+| NVIDIA RTX 6000 Ada Generation | 2624x5632x3328 | 278.5 |
 | NVIDIA A100 PCIe | 2304x5120x1536 | 256.4 |
 | NVIDIA A100 SXM | 6912x16384x2048 | 267.9 |
 | NVIDIA H100 NVL | 2560x2176x8192 | 488.5 |
 | NVIDIA H100 PCIe | 6912x16384x2048 | 499.5 |
 | AMD MI300X | 4352x13568x3840 | 758.3 |
 | NVIDIA H100 SXM | 6144x17920x2816 | 792.1 |
+| NVIDIA GH200 480GB | 6144x17920x2816 | 836.7 |
 
 
 # Install
@@ -36,7 +43,8 @@ Special thanks to [Stas Bekman](https://x.com/StasBekman) for the original imple
 ```
 # For a faster and smoother installation experience, we recommend using `uv`, an extremely fast Python package installer written in Rust.
 # It's a seamless drop-in replacement for pip, so you don't have to worry about compatibility.
-# You can easily install it with: `pip install uv`
+# You can easily install it with: 
+pip install uv
 git clone https://github.com/mag-/gpu_benchmark
 cd gpu_benchmark
 uv venv
@@ -53,3 +61,5 @@ uv pip install -r requirements.txt
 - check raw CUDA
 - check tinygrad
 
+# Acknowledgements:
+Thanks to Bernhard from GPTshop.ai for giving me access to GH200
