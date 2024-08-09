@@ -34,7 +34,9 @@ Special thanks to [Stas Bekman](https://x.com/StasBekman) for the original imple
 # Install
 
 ```
-# If you are not using uv, install it: pip install uv
+# For a faster and smoother installation experience, we recommend using `uv`, an extremely fast Python package installer written in Rust.
+# It's a seamless drop-in replacement for pip, so you don't have to worry about compatibility.
+# You can easily install it with: `pip install uv`
 git clone https://github.com/mag-/gpu_benchmark
 cd gpu_benchmark
 uv venv
