@@ -33,12 +33,14 @@ Special thanks to [Stas Bekman](https://x.com/StasBekman) for the original imple
 | NVIDIA RTX 6000 Ada Generation | 2624x5632x3328 | 278.5 |
 | NVIDIA A100 PCIe | 2304x5120x1536 | 256.4 |
 | NVIDIA A100 SXM | 6912x16384x2048 | 267.9 |
-| NVIDIA H100 NVL | 2560x2176x8192 | 488.5 |
+| NVIDIA H100 NVL* | 2560x2176x8192 | 488.5 |
 | NVIDIA H100 PCIe | 6912x16384x2048 | 499.5 |
 | AMD MI300X | 4352x13568x3840 | 758.3 |
 | NVIDIA H100 SXM 96GB | 16896x15680x1024 | 807.1 |
 | NVIDIA H100 SXM 80GB | 6144x17920x2816 | 821.2 |
 | NVIDIA GH200 96GB | 7616x17664x4480 | 852.5 |
+
+*for H100 NVL we are only using a single card as we don't support multi-gpu
 
 # Install
 
