@@ -14,9 +14,6 @@ This project aims to measure the theoretical maximum FLOPS (Floating Point Opera
 
 3. **Data Collection**: An optional feature allows submitting results to a remote API for data collection and analysis.
 
-## Acknowledgements
-
-Special thanks to [Stas Bekman](https://x.com/StasBekman) for the original implementation and research.
 
 # Stats
 
@@ -57,13 +54,12 @@ uv pip install -r requirements.txt
 ./mamf-finder.py
 ```
 
-# Changes:
-- added optuna for finding the parameters instead of doing a brute-force search
-
-
 # TODO:
+- Change benchmarking logic, see discussion here: [https://github.com/mag-/gpu_benchmark/discussions/1]
 - check raw CUDA
 - check tinygrad
 
 # Acknowledgements:
 Thanks to Bernhard from GPTshop.ai for giving me access to GH200
+
+Special thanks to [Stas Bekman](https://x.com/StasBekman) for the original implementation and research.
