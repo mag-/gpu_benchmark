@@ -17,6 +17,7 @@ from pathlib import Path
 
 import argparse
 import datetime
+import subprocess
 import termios
 import tty
 import numpy as np
@@ -32,11 +33,13 @@ import optuna
 
 from optuna.storages import RDBStorage
 import warnings
+
 warnings.filterwarnings("ignore", message="set_metric_names is experimental*")
 
 has_hpu = False
 try:
     import habana_frameworks.torch as ht
+
     if torch.hpu.is_available():
         has_hpu = True
 except ModuleNotFoundError:
@@ -45,8 +48,8 @@ except ModuleNotFoundError:
 file_dir = os.path.abspath(os.path.dirname(__file__))
 
 
-
 ### Architecture specific helper classes ###
+
 
 class Arch:
     def __init__(self):
@@ -55,8 +58,10 @@ class Arch:
     def __repr__(self):
         return self.arch
 
+
 class CUDAArch(Arch):
-    """ shared with CUDA and ROCm: NVIDIA + AMD """
+    """shared with CUDA and ROCm: NVIDIA + AMD"""
+
     def __init__(self):
         if torch.version.hip is not None:
             self.arch = "rocm"
@@ -64,7 +69,7 @@ class CUDAArch(Arch):
             self.arch = "cuda"
 
     def device(self):
-        return torch.device('cuda:0')
+        return torch.device("cuda:0")
 
     def name(self):
         return self.arch
@@ -84,13 +89,15 @@ class CUDAArch(Arch):
     def synchronize(self):
         torch.cuda.synchronize()
 
+
 class HPUArch(Arch):
-    """ Intel Gaudi* """
+    """Intel Gaudi*"""
+
     def __init__(self):
         self.arch = "hpu"
 
     def device(self):
-        return torch.device('hpu')
+        return torch.device("hpu")
 
     def name(self):
         return self.arch
@@ -108,6 +115,60 @@ class HPUArch(Arch):
         ht.hpu.synchronize()
 
 
+class MPSEvent:
+    def __init__(self):
+        self.time = None
+
+    def record(self):
+        self.time = time.perf_counter()
+
+    def elapsed_time(self, end):
+        if self.time is None or end.time is None:
+            return None
+        return (end.time - self.time) * 1000  # Convert to milliseconds
+
+    @staticmethod
+    def synchronize():
+        torch.mps.synchronize()
+
+
+class MetalArch(Arch):
+    """Apple Silicon"""
+
+    def __init__(self):
+        self.arch = "metal"
+
+    def device(self):
+        return torch.device("mps")
+
+    def name(self):
+        return self.arch
+
+    def device_info(self):
+        if platform.system() != "Darwin":
+            return "Not a Mac"
+
+        # Run system_profiler command to get hardware info
+        result = subprocess.run(
+            ["system_profiler", "SPHardwareDataType"], capture_output=True, text=True
+        )
+
+        # Parse the output
+        for line in result.stdout.split("\n"):
+            if "Chip" in line:
+                chip_info = line.split(":")[1].strip()
+                return chip_info
+
+    def compute_info(self):
+        return "metal"
+
+    def event(self, enable_timing=True):
+        return MPSEvent()
+
+    def synchronize(self):
+        torch.mps.synchronize()
+
+
 def get_accelerator_arch():
     """
     returns: CUDAArch or HPUArch object
@@ -120,13 +181,18 @@ def get_accelerator_arch():
     if has_hpu:
         return HPUArch()
 
-    raise ValueError("Currently only cuda, rocm and hpu are supported")
+    # Apple Silicon
+    if torch.backends.mps.is_available():
+        return MetalArch()
+
+    raise ValueError("Currently only cuda, rocm, hpu and metal are supported")
+
 
 arch = get_accelerator_arch()
 
 
-
 ### Helper classes ###
+
 
 class Tee(object):
     def __init__(self, filename, verbose):
@@ -137,7 +203,6 @@ class Tee(object):
             self.stdout = sys.stdout
 
     def write(self, message):
-
         if self.verbose:
             self.stdout.write(message)
         # replace `\r` and `033\[K` which are nice in the console, but we don't want those in the log file
@@ -151,11 +216,11 @@ class Tee(object):
 
 
 def print_benchmark_header(dtype, device, notes="None"):
-
     device_info = arch.device_info()
     compute_info = arch.compute_info()
 
-    print(f"""
+    print(
+        f"""
 Benchmark started on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
 
 ** Command line:
@@ -176,17 +241,20 @@ torch={torch.__version__}
 
 {"-" * 80}
 
-""")
+"""
+    )
+
 
 def getch():
-  fd = sys.stdin.fileno()
-  old_settings = termios.tcgetattr(fd)
-  try:
-    tty.setraw(sys.stdin.fileno())
-    ch = sys.stdin.read(1)
-  finally:
-    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-  return ch
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
+
 
 # Benchmark of a basic GEMM
 def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
@@ -197,7 +265,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
     B = torch.randn(n, k, dtype=dtype, device=device)
     C = torch.empty(m, k, dtype=dtype, device=device)
 
-    times = np.zeros(num_iterations+num_warmup_iterations)
+    times = np.zeros(num_iterations + num_warmup_iterations)
     for i in range(num_warmup_iterations + num_iterations):
         with torch.no_grad():
             start.record()
@@ -206,32 +274,82 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         arch.synchronize()
         times[i] = start.elapsed_time(end)
     times = times[num_warmup_iterations:]
-    elapsed_time = np.amin(times)/1000 # want the fastest
+    elapsed_time = np.amin(times) / 1000  # want the fastest
     tflops = (2 * m * n * k) / (elapsed_time * 10**12)
     return tflops
 
 
 def objective(trial):
-    M = trial.suggest_int('M', args.m_range[0], args.m_range[1], step=args.m_range[2])
-    N = trial.suggest_int('N', args.n_range[0], args.n_range[1], step=args.n_range[2])
-    K = trial.suggest_int('K', args.k_range[0], args.k_range[1], step=args.k_range[2])
-    
-    tflops = benchmark_mm(M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations)
+    M = trial.suggest_int("M", args.m_range[0], args.m_range[1], step=args.m_range[2])
+    N = trial.suggest_int("N", args.n_range[0], args.n_range[1], step=args.n_range[2])
+    K = trial.suggest_int("K", args.k_range[0], args.k_range[1], step=args.k_range[2])
+
+    tflops = benchmark_mm(
+        M, N, K, dtype, device, args.num_iterations, args.num_warmup_iterations
+    )
     return tflops
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--m_range", nargs=3, type=int, default=[1024, 20480, 64], help="The first dimension of the GEMM, [start,stop,step]")
-    parser.add_argument("--n_range", nargs=3, type=int, default=[1024, 20480, 64], help="The shared dimension of the GEMM, [start,stop,step]")
-    parser.add_argument("--k_range", nargs=3, type=int, default=[1024, 20480, 64], help="The last dimension of the GEMM, [start,stop,step]")
-    parser.add_argument("--num_iterations", type=int, default=100, help='The number of iterations used to benchmark each GEMM')
-    parser.add_argument("--num_warmup_iterations", type=int, default=50, help='The number of warmup iterations')
-    parser.add_argument("--cuda_device", type=int, default=0, help="The cuda device to run the benchmark on")
+    parser.add_argument(
+        "--m_range",
+        nargs=3,
+        type=int,
+        default=[1024, 20480, 64],
+        help="The first dimension of the GEMM, [start,stop,step]",
+    )
+    parser.add_argument(
+        "--n_range",
+        nargs=3,
+        type=int,
+        default=[1024, 20480, 64],
+        help="The shared dimension of the GEMM, [start,stop,step]",
+    )
+    parser.add_argument(
+        "--k_range",
+        nargs=3,
+        type=int,
+        default=[1024, 20480, 64],
+        help="The last dimension of the GEMM, [start,stop,step]",
+    )
+    parser.add_argument(
+        "--num_iterations",
+        type=int,
+        default=100,
+        help="The number of iterations used to benchmark each GEMM",
+    )
+    parser.add_argument(
+        "--num_warmup_iterations",
+        type=int,
+        default=50,
+        help="The number of warmup iterations",
+    )
+    parser.add_argument(
+        "--cuda_device",
+        type=int,
+        default=0,
+        help="The cuda device to run the benchmark on",
+    )
     parser.add_argument("--output_file", type=str, default=f"{file_dir}/out.txt")
-    parser.add_argument("--notes", type=str, default="", help="benchmark-specific notes to add to the output_file's header")
-    parser.add_argument("--verbose", default=True, action=argparse.BooleanOptionalAction, help='log to stdout besides output_file?')
-    parser.add_argument("--n_trials", type=int, default=1000, help="Number of trials for Optuna")
-    parser.add_argument("--study_name", type=str, default="mamf_study", help="Name of the Optuna study")
+    parser.add_argument(
+        "--notes",
+        type=str,
+        default="",
+        help="benchmark-specific notes to add to the output_file's header",
+    )
+    parser.add_argument(
+        "--verbose",
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help="log to stdout besides output_file?",
+    )
+    parser.add_argument(
+        "--n_trials", type=int, default=1000, help="Number of trials for Optuna"
+    )
+    parser.add_argument(
+        "--study_name", type=str, default="mamf_study", help="Name of the Optuna study"
+    )
     args = parser.parse_args()
 
     dtype = torch.bfloat16
@@ -242,15 +360,14 @@ if __name__ == '__main__':
 
     # Create a SQLite storage
     storage = RDBStorage(
-        url=f"sqlite:///optuna.db",
-        engine_kwargs={"connect_args": {"timeout": 30}}
+        url=f"sqlite:///optuna.db", engine_kwargs={"connect_args": {"timeout": 30}}
     )
 
     study = optuna.create_study(
         study_name=args.study_name,
         storage=storage,
         load_if_exists=True,
-        direction="maximize"
+        direction="maximize",
     )
     study.set_metric_names(["TFLOPS"])
 
@@ -269,10 +386,16 @@ if __name__ == '__main__':
         best_trial = study.best_trial
         best_tflops = best_trial.value
         best_config = f"{best_trial.params['M']}x{best_trial.params['N']}x{best_trial.params['K']} (MxNxK)"
-        print(f"The best outcome was {best_tflops:.1f}TFLOPS @ {best_config} (tried {len(study.trials)} shapes)")
+        print(
+            f"The best outcome was {best_tflops:.1f}TFLOPS @ {best_config} (tried {len(study.trials)} shapes)"
+        )
         print(f"Elapsed time: {time_str}")
         # Ask user if they want to upload the data
-        print("Do you want to upload the benchmark results to the API? [Y/n]: ", end='', flush=True)
+        print(
+            "Do you want to upload the benchmark results to the API? [Y/n]: ",
+            end="",
+            flush=True,
+        )
         upload_response = getch().lower()
         print("\n")
         if upload_response != "n":
@@ -281,13 +404,20 @@ if __name__ == '__main__':
     def upload_to_api(tflops, config):
         import urllib.request
         import json
-        data = json.dumps({
-            'tflops': tflops,
-            'config': config,
-            'device_info': str(arch.device_info()),
-            'compute_info': arch.compute_info(),
-        }).encode('utf-8')
-        req = urllib.request.Request('https://rafalkwasny.com/log_gpu_benchmark', data=data, headers={'Content-Type': 'application/json'})
+
+        data = json.dumps(
+            {
+                "tflops": tflops,
+                "config": config,
+                "device_info": str(arch.device_info()),
+                "compute_info": arch.compute_info(),
+            }
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            "https://rafalkwasny.com/log_gpu_benchmark",
+            data=data,
+            headers={"Content-Type": "application/json"},
+        )
         try:
             with urllib.request.urlopen(req) as response:
                 if response.getcode() == 200:
@@ -298,19 +428,22 @@ if __name__ == '__main__':
             print(f"Failed to upload data. Error: {e.reason}")
 
     def print_progress(study, trial):
-        print(f"Trial {trial.number:>6} | {trial.value:6.1f} TFLOPS @ {trial.params['M']}x{trial.params['N']}x{trial.params['K']:<20} | best: {study.best_value:6.1f} TFLOPS", end="\r")
+        print(
+            f"Trial {trial.number:>6} | {trial.value:6.1f} TFLOPS @ {trial.params['M']}x{trial.params['N']}x{trial.params['K']:<20} | best: {study.best_value:6.1f} TFLOPS",
+            end="\r",
+        )
 
     # Add known best shapes to the study
     known_best_shapes = [
         (6912, 16384, 2048),  # NVIDIA A100 SXM
-        (2304, 5120, 1536),   # NVIDIA A100 PCIe
+        (2304, 5120, 1536),  # NVIDIA A100 PCIe
         (6144, 17920, 2816),  # NVIDIA H100 SXM
         (14336, 4096, 4096),  # NVIDIA RTX 4090
         (4352, 13568, 3840),  # AMD MI300X
     ]
 
     for m, n, k in known_best_shapes:
-        study.enqueue_trial({'M': m, 'N': n, 'K': k})
+        study.enqueue_trial({"M": m, "N": n, "K": k})
 
     study.optimize(objective, n_trials=args.n_trials, callbacks=[print_progress])
     finish()
