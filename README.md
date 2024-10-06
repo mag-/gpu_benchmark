@@ -36,6 +36,7 @@ This project aims to measure the theoretical maximum FLOPS (Floating Point Opera
 | NVIDIA H100 SXM 96GB | 16896x15680x1024 | 807.1 |
 | NVIDIA H100 SXM 80GB | 6144x17920x2816 | 821.2 |
 | NVIDIA GH200 96GB | 7616x17664x4480 | 852.5 |
+| NVIDIA GH200 144G HBM3e | 7616x17664x4480 | 853.8 |
 
 *for H100 NVL we are only using a single card as we don't support multi-gpu
 
