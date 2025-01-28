@@ -5,7 +5,11 @@ This project aims to measure the theoretical maximum FLOPS (Floating Point Opera
 
 ## Key Features
 
-1. **Optimized Search**: Unlike the [original implementation](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/benchmarks/mamf-finder.py) which uses a brute force approach, this version leverages Optuna for efficient parameter optimization.
+1. **Median** instead of maximum value, each mutliplication is repeated 100 times and we take a median.
+
+2. **Clearing L2 Cache** between iterations we are clearing L2 cache on the GPU see the article by [SemiAnalysis](https://semianalysis.com/2024/12/22/mi300x-vs-h100-vs-h200-benchmark-part-1-training/)
+
+3. **Optimized Search**: Unlike the [original implementation](https://github.com/stas00/ml-engineering/blob/master/compute/accelerator/benchmarks/mamf-finder.py) which uses a brute force approach, this version leverages Optuna for efficient parameter optimization.
 
 2. **Visualization**: Optuna provides insightful visualizations of the optimization process:
 
@@ -64,7 +68,6 @@ uv pip install -r requirements.txt
 ```
 
 # TODO:
-- Change benchmarking logic, see discussion here: [https://github.com/mag-/gpu_benchmark/discussions/1]
 - check raw CUDA
 - check tinygrad
 

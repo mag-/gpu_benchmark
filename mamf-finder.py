@@ -51,12 +51,28 @@ file_dir = os.path.abspath(os.path.dirname(__file__))
 ### Architecture specific helper classes ###
 
 
+def clear_l2_cache():
+    # Allocate tensor larger than L2 cache (modern GPUs typically have 512KB to 6MB L2)
+    cache_size_mb = 8  # 8MB to be safe
+    n_elements = int(cache_size_mb * 1024 * 1024 / 4)  # Divide by 4 bytes (float32)
+
+    # Create and fill tensor
+    dummy = torch.ones(n_elements, dtype=torch.float32, device="cuda")
+    dummy += 1  # Force memory access
+
+    # Synchronize to ensure operation is complete
+    torch.cuda.synchronize()
+
+
 class Arch:
     def __init__(self):
         self.arch = "unknown"
 
     def __repr__(self):
         return self.arch
+
+    def clear_cache(self):
+        pass
 
 
 class CUDAArch(Arch):
@@ -88,6 +104,9 @@ class CUDAArch(Arch):
 
     def synchronize(self):
         torch.cuda.synchronize()
+
+    def clear_cache(self):
+        clear_l2_cache()
 
 
 class HPUArch(Arch):
@@ -221,7 +240,7 @@ def print_benchmark_header(dtype, device, notes="None"):
 
     print(
         f"""
-Benchmark started on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
+Benchmark started on {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}
 
 ** Command line:
 {sys.executable} {" ".join(map(shlex.quote, sys.argv))}
@@ -267,6 +286,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
 
     times = np.zeros(num_iterations + num_warmup_iterations)
     for i in range(num_warmup_iterations + num_iterations):
+        arch.clear_cache()
         with torch.no_grad():
             start.record()
             torch.mm(A, B, out=C)
@@ -274,7 +294,7 @@ def benchmark_mm(m, n, k, dtype, device, num_iterations, num_warmup_iterations):
         arch.synchronize()
         times[i] = start.elapsed_time(end)
     times = times[num_warmup_iterations:]
-    elapsed_time = np.amin(times) / 1000  # want the fastest
+    elapsed_time = np.median(times) / 1000  # want the median
     tflops = (2 * m * n * k) / (elapsed_time * 10**12)
     return tflops
 
