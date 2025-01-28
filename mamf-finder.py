@@ -53,7 +53,7 @@ file_dir = os.path.abspath(os.path.dirname(__file__))
 
 def clear_l2_cache():
     # Allocate tensor larger than L2 cache (modern GPUs typically have 512KB to 6MB L2)
-    cache_size_mb = 8  # 8MB to be safe
+    cache_size_mb = 100  # 100MB to be safe
     n_elements = int(cache_size_mb * 1024 * 1024 / 4)  # Divide by 4 bytes (float32)
 
     # Create and fill tensor
