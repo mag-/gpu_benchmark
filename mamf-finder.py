@@ -51,18 +51,20 @@ file_dir = os.path.abspath(os.path.dirname(__file__))
 ### Architecture specific helper classes ###
 
 
-def clear_l2_cache():
+def clear_l2_cache(device):
     # Allocate tensor larger than L2 cache (modern GPUs typically have 512KB to 6MB L2)
     cache_size_mb = 100  # 100MB to be safe
     n_elements = int(cache_size_mb * 1024 * 1024 / 4)  # Divide by 4 bytes (float32)
 
     # Create and fill tensor
-    dummy = torch.ones(n_elements, dtype=torch.float32, device="cuda")
+    dummy = torch.ones(n_elements, dtype=torch.float32, device=device)
     dummy += 1  # Force memory access
 
     # Synchronize to ensure operation is complete
-    torch.cuda.synchronize()
-
+    if device.type == "xpu":
+        torch.xpu.synchronize()
+    else:
+        torch.cuda.synchronize()
 
 class Arch:
     def __init__(self):
@@ -106,7 +108,7 @@ class CUDAArch(Arch):
         torch.cuda.synchronize()
 
     def clear_cache(self):
-        clear_l2_cache()
+        clear_l2_cache(device)
 
 
 class HPUArch(Arch):
@@ -187,6 +189,32 @@ class MetalArch(Arch):
     def synchronize(self):
         torch.mps.synchronize()
 
+class XPUArch(Arch):
+    """XPU (Intel dGPUs and iGPUs on Core Ultra CPUs)"""
+
+    def __init__(self):
+        self.arch = "xpu"
+
+    def device(self):
+        return torch.device("xpu:0")
+
+    def name(self):
+        return self.arch
+
+    def device_info(self):
+        return torch.xpu.get_device_properties(device)
+
+    def compute_info(self):
+        return f"xpu={torch.version.xpu}"
+
+    def event(self, enable_timing=True):
+        return torch.xpu.Event(enable_timing)
+
+    def synchronize(self):
+        torch.xpu.synchronize()
+
+    def clear_cache(self):
+        clear_l2_cache(device)
 
 def get_accelerator_arch():
     """
@@ -195,6 +223,10 @@ def get_accelerator_arch():
     # cuda / rocm
     if torch.cuda.is_available():
         return CUDAArch()
+
+    # xpu (intel dGPUs and iGPUs on Core Ultra CPUs)
+    if torch.xpu.is_available():
+        return XPUArch()
 
     # hpu
     if has_hpu:
