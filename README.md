@@ -38,6 +38,7 @@ This project aims to measure the theoretical maximum FLOPS (Floating Point Opera
 | AMD Instinct MI210 | 17536x7360x2304 | 142.8 |
 | NVIDIA L40 | 3712x2624x11136 | 170.3 |
 | NVIDIA GeForce RTX 4090 | 14336x4096x4096 | 178.8 |
+| Intel Data Center GPU Max 1100 | 9280x6784x10944 | 225.7 |
 | NVIDIA L40S | 4416x3776x3072 | 252.0 |
 | NVIDIA RTX 6000 Ada Generation | 2624x5632x3328 | 278.5 |
 | NVIDIA A100 PCIe | 2304x5120x1536 | 256.4 |
